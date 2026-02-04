@@ -34,4 +34,6 @@ export const GENRES: Genre[] = [
   { id: '551167', name: '医薬品・介護' }
 ];
 
-export const RAKUTEN_API_BASE = 'https://app.rakuten.co.jp/services/api/IchibaRanking/Ranking/20171001';
+// 正しいエンドポイントは IchibaItem/Ranking です。
+// IchibaRanking/Ranking と間違えるとエラーになります。
+export const RAKUTEN_API_BASE = 'https://app.rakuten.co.jp/services/api/IchibaItem/Ranking/20171001';

@@ -8,6 +8,12 @@ interface GenreSelectorProps {
 }
 
 const GenreSelector: React.FC<GenreSelectorProps> = ({ activeGenreId, onSelect }) => {
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>, id: string) => {
+    onSelect(id);
+    const target = e.currentTarget;
+    target.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  };
+
   return (
     <div className="sticky top-[60px] z-10 bg-white shadow-sm border-b border-gray-200">
       <div className="relative max-w-4xl mx-auto">
@@ -19,14 +25,7 @@ const GenreSelector: React.FC<GenreSelectorProps> = ({ activeGenreId, onSelect }
           {GENRES.map((genre) => (
             <button
               key={genre.id}
-              onClick={() => {
-                onSelect(genre.id);
-                // Simple scroll-to-center logic for selected item
-                const target = event?.currentTarget as HTMLElement;
-                if (target) {
-                  target.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-                }
-              }}
+              onClick={(e) => handleClick(e, genre.id)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                 activeGenreId === genre.id
                   ? 'bg-red-600 text-white shadow-md transform scale-105'

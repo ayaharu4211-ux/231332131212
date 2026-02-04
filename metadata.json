@@ -1,0 +1,6 @@
+
+{
+  "name": "Rakuten Ranking Copier",
+  "description": "A lightweight, mobile-first web application to browse Rakuten's real-time product rankings by genre with easy URL copying for affiliate use.",
+  "requestFramePermissions": []
+}

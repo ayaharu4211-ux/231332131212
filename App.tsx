@@ -15,25 +15,13 @@ const App: React.FC = () => {
     setStatus(LoadingStatus.LOADING);
     setError(null);
 
-    const appId = process.env.RAKUTEN_APP_ID || '';
-    const affiliateId = process.env.RAKUTEN_AFFILIATE_ID || '';
+    // Using the provided credentials from the screenshot
+    const appId = process.env.RAKUTEN_APP_ID || '1069849120479290339';
+    const affiliateId = process.env.RAKUTEN_AFFILIATE_ID || '1cd2c935.7bc813b2.1cd2c936.7c0882f2';
 
-    if (!appId) {
-        console.warn("Rakuten Application ID is missing. Using mock data for demonstration.");
-        setTimeout(() => {
-            const mockItems: RakutenItem[] = Array.from({ length: 30 }).map((_, i) => ({
-                rank: i + 1,
-                itemName: `【${i+1}位】${GENRES.find(g => g.id === genreId)?.name} カテゴリの注目アイテム サンプル商品名`,
-                itemPrice: Math.floor(Math.random() * 10000) + 1000,
-                itemUrl: "https://www.rakuten.co.jp",
-                affiliateUrl: "https://a.r10.to/mock_url",
-                mediumImageUrls: [{ imageUrl: `https://picsum.photos/seed/${genreId}${i}/300/300` }],
-                shopName: "楽天公式ショップ"
-            }));
-            setItems(mockItems);
-            setStatus(LoadingStatus.SUCCESS);
-        }, 600);
-        return;
+    if (!appId || appId === '1069849120479290339' && !window.location.hostname.includes('vercel.app') && !window.location.hostname.includes('localhost')) {
+      // Logic for developers who might not have keys set up yet, 
+      // but we will prioritize the real API call with the provided keys.
     }
 
     try {
@@ -48,9 +36,19 @@ const App: React.FC = () => {
       }
 
       const response = await fetch(url.toString());
-      if (!response.ok) throw new Error('Network response was not ok');
+      if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error_description || 'APIリクエストに失敗しました');
+      }
       
       const data = await response.json();
+      
+      if (!data.Items || data.Items.length === 0) {
+        setItems([]);
+        setStatus(LoadingStatus.SUCCESS);
+        return;
+      }
+
       const mappedItems = data.Items.map((item: any) => ({
         rank: item.Item.rank,
         itemName: item.Item.itemName,
@@ -72,7 +70,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     fetchRanking(activeGenreId);
-    // Scroll to top when genre changes
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeGenreId, fetchRanking]);
 
@@ -84,27 +81,30 @@ const App: React.FC = () => {
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 3.45L19.53 19H4.47L12 5.45z"/></svg>
             Rakuten Ranking Copier
         </h1>
-        <p className="text-[9px] opacity-80 uppercase tracking-widest">Real-time Top 30</p>
+        <p className="text-[9px] opacity-80 uppercase tracking-widest font-medium">Real-time Top 30</p>
       </header>
 
       {/* Genre Filter */}
       <GenreSelector activeGenreId={activeGenreId} onSelect={setActiveGenreId} />
 
-      <main className="max-w-4xl mx-auto px-4 py-4">
+      <main className="max-w-4xl mx-auto px-4 py-6">
         {status === LoadingStatus.LOADING && (
-          <div className="flex flex-col items-center justify-center py-24 gap-4">
+          <div className="flex flex-col items-center justify-center py-32 gap-4">
             <div className="w-12 h-12 border-4 border-red-100 border-t-red-600 rounded-full animate-spin"></div>
-            <p className="text-gray-400 font-medium animate-pulse text-sm">最新ランキングを取得中...</p>
+            <p className="text-gray-400 font-medium animate-pulse text-sm">最新データを読み込み中...</p>
           </div>
         )}
 
         {status === LoadingStatus.ERROR && (
-          <div className="bg-red-50 text-red-700 p-8 rounded-2xl border border-red-100 text-center my-10 shadow-sm">
-            <p className="font-bold mb-2">通信エラー</p>
-            <p className="text-xs mb-6 opacity-80">{error}</p>
+          <div className="bg-white p-8 rounded-2xl border border-red-100 text-center my-10 shadow-sm max-w-sm mx-auto">
+            <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            </div>
+            <p className="font-bold text-gray-800 mb-1">通信エラー</p>
+            <p className="text-xs text-gray-500 mb-6 px-4">{error}</p>
             <button
               onClick={() => fetchRanking(activeGenreId)}
-              className="bg-red-600 text-white px-8 py-3 rounded-full font-bold shadow-lg active:scale-95 transition-transform"
+              className="w-full bg-red-600 text-white py-3 rounded-xl font-bold shadow-lg active:scale-95 transition-transform"
             >
               再読み込み
             </button>
@@ -112,7 +112,7 @@ const App: React.FC = () => {
         )}
 
         {status === LoadingStatus.SUCCESS && (
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {items.map((item) => (
               <ItemCard key={`${item.rank}-${item.itemName}`} item={item} />
             ))}
@@ -126,9 +126,9 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="max-w-4xl mx-auto px-4 mt-12 border-t border-gray-200 pt-8 text-center text-[10px] text-gray-400 pb-20">
-        <p className="font-medium">© 2024 Rakuten Ranking Copier</p>
-        <p className="mt-1">Supported by Rakuten Developers API</p>
+      <footer className="max-w-4xl mx-auto px-4 mt-12 border-t border-gray-200 pt-10 text-center pb-20">
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Rakuten Ranking Copier</p>
+        <p className="mt-2 text-[10px] text-gray-300">Supported by Rakuten Developers API</p>
       </footer>
     </div>
   );

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { RakutenItem, LoadingStatus } from './types';
 import { GENRES, RAKUTEN_API_BASE } from './constants';
@@ -15,7 +16,7 @@ const App: React.FC = () => {
     setStatus(LoadingStatus.LOADING);
     setError(null);
 
-    // ご提示いただいた認証情報をデフォルトとして使用
+    // アプリケーションIDとアフィリエイトID
     const appId = process.env.RAKUTEN_APP_ID || '1069849120479290339';
     const affiliateId = process.env.RAKUTEN_AFFILIATE_ID || '1cd2c935.7bc813b2.1cd2c936.7c0882f2';
 
@@ -27,35 +28,44 @@ const App: React.FC = () => {
       url.searchParams.append('period', 'realtime');
       url.searchParams.append('hits', '30');
       
-      if (genreId !== '0') {
+      if (genreId && genreId !== '0') {
         url.searchParams.append('genreId', genreId);
       }
+
+      console.log('Fetching from URL:', url.toString());
 
       const response = await fetch(url.toString());
       
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error_description || errData.error || `エラー: ${response.status}`);
+        const errText = await response.text();
+        let errorMessage = `エラー: ${response.status}`;
+        try {
+            const errData = JSON.parse(errText);
+            errorMessage = errData.error_description || errData.error || errorMessage;
+        } catch(e) {
+            errorMessage = errText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
       
       const data = await response.json();
 
-      // Itemsがない、または空の場合のハンドリング
-      if (!data.Items || !Array.isArray(data.Items) || data.Items.length === 0) {
+      if (!data.Items || !Array.isArray(data.Items)) {
         setItems([]);
         setStatus(LoadingStatus.SUCCESS);
         return;
       }
 
-      // 取得した「本物のデータ」をマッピング
+      // 取得したデータをマッピング
       const mappedItems = data.Items.map((itemData: any) => {
+        // APIレスポンスは { Item: { ... } } という構造です
         const item = itemData.Item;
         return {
           rank: item.rank,
           itemName: item.itemName,
           itemPrice: item.itemPrice,
           itemUrl: item.itemUrl,
-          // アフィリエイトURLが空の場合は、トラッキングパラメータ付きの商品URLを使用する
+          // affiliateUrlが空の場合はitemUrlを代用（トラッキング用）
           affiliateUrl: item.affiliateUrl || item.itemUrl,
           mediumImageUrls: item.mediumImageUrls || [],
           shopName: item.shopName,
@@ -65,8 +75,8 @@ const App: React.FC = () => {
       setItems(mappedItems);
       setStatus(LoadingStatus.SUCCESS);
     } catch (err: any) {
-      console.error('Fetch error:', err);
-      setError(err.message || 'ランキングの取得に失敗しました。APIキーやドメイン設定を確認してください。');
+      console.error('Fetch error detail:', err);
+      setError(err.message || 'ランキングの取得に失敗しました。');
       setStatus(LoadingStatus.ERROR);
     }
   }, []);
@@ -104,14 +114,15 @@ const App: React.FC = () => {
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
             </div>
             <p className="font-bold text-gray-800 mb-1">データを取得できません</p>
-            <p className="text-xs text-gray-500 mb-6 px-4 leading-relaxed whitespace-pre-wrap">
-              {error}
+            <p className="text-xs text-red-500 mb-4 font-mono break-all">{error}</p>
+            <p className="text-[10px] text-gray-500 mb-6 px-4 leading-relaxed">
+              URL設定に誤りがあるか、APIの制限により取得できていません。
             </p>
             <button
               onClick={() => fetchRanking(activeGenreId)}
               className="w-full bg-red-600 text-white py-3 rounded-xl font-bold shadow-lg active:scale-95 transition-transform"
             >
-              再試行する
+              再読み込み
             </button>
           </div>
         )}
@@ -119,7 +130,7 @@ const App: React.FC = () => {
         {status === LoadingStatus.SUCCESS && items.length > 0 && (
           <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {items.map((item, idx) => (
-              <ItemCard key={`${item.rank}-${idx}-${item.itemName.substring(0, 10)}`} item={item} />
+              <ItemCard key={`${item.rank}-${idx}`} item={item} />
             ))}
           </div>
         )}

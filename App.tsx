@@ -15,14 +15,10 @@ const App: React.FC = () => {
     setStatus(LoadingStatus.LOADING);
     setError(null);
 
-    // Using the provided credentials from the screenshot
+    // 画像でいただいた実際の認証情報を設定
+    // 環境変数が設定されていない場合のデフォルトとして使用します
     const appId = process.env.RAKUTEN_APP_ID || '1069849120479290339';
     const affiliateId = process.env.RAKUTEN_AFFILIATE_ID || '1cd2c935.7bc813b2.1cd2c936.7c0882f2';
-
-    if (!appId || appId === '1069849120479290339' && !window.location.hostname.includes('vercel.app') && !window.location.hostname.includes('localhost')) {
-      // Logic for developers who might not have keys set up yet, 
-      // but we will prioritize the real API call with the provided keys.
-    }
 
     try {
       const url = new URL(RAKUTEN_API_BASE);
@@ -31,24 +27,33 @@ const App: React.FC = () => {
       url.searchParams.append('affiliateId', affiliateId);
       url.searchParams.append('period', 'realtime');
       url.searchParams.append('hits', '30');
+      
+      // ジャンルIDが '0'（総合）以外の場合はパラメータを追加
       if (genreId !== '0') {
         url.searchParams.append('genreId', genreId);
       }
 
       const response = await fetch(url.toString());
+      
       if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error_description || 'APIリクエストに失敗しました');
+        const errData = await response.json();
+        // 楽天APIのエラーメッセージ（error_description等）があればそれを表示
+        throw new Error(errData.error_description || errData.error || `通信エラー: ${response.status}`);
       }
       
       const data = await response.json();
       
+      if (data.error) {
+        throw new Error(data.error_description || 'APIエラーが発生しました');
+      }
+
       if (!data.Items || data.Items.length === 0) {
         setItems([]);
         setStatus(LoadingStatus.SUCCESS);
         return;
       }
 
+      // 取得した実際のデータをアプリ用の形式に変換
       const mappedItems = data.Items.map((item: any) => ({
         rank: item.Item.rank,
         itemName: item.Item.itemName,
@@ -62,7 +67,9 @@ const App: React.FC = () => {
       setItems(mappedItems);
       setStatus(LoadingStatus.SUCCESS);
     } catch (err: any) {
-      console.error(err);
+      console.error('Fetch error:', err);
+      // ローカル環境(localhost)などで実行している場合、楽天APIのCORS制限によりエラーになることがあります。
+      // Vercel等のデプロイ環境では許可ドメイン設定により動作します。
       setError(err.message || 'ランキングの取得に失敗しました');
       setStatus(LoadingStatus.ERROR);
     }
@@ -91,7 +98,7 @@ const App: React.FC = () => {
         {status === LoadingStatus.LOADING && (
           <div className="flex flex-col items-center justify-center py-32 gap-4">
             <div className="w-12 h-12 border-4 border-red-100 border-t-red-600 rounded-full animate-spin"></div>
-            <p className="text-gray-400 font-medium animate-pulse text-sm">最新データを読み込み中...</p>
+            <p className="text-gray-400 font-medium animate-pulse text-sm">最新ランキングを読込中...</p>
           </div>
         )}
 
@@ -100,8 +107,11 @@ const App: React.FC = () => {
             <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
             </div>
-            <p className="font-bold text-gray-800 mb-1">通信エラー</p>
-            <p className="text-xs text-gray-500 mb-6 px-4">{error}</p>
+            <p className="font-bold text-gray-800 mb-1">データを取得できません</p>
+            <p className="text-xs text-gray-500 mb-6 px-4 leading-relaxed">
+              {error}<br/>
+              <span className="text-[10px] mt-2 block opacity-70">※ローカル環境ではCORS制限によりエラーになる場合があります。Vercelにデプロイして確認してください。</span>
+            </p>
             <button
               onClick={() => fetchRanking(activeGenreId)}
               className="w-full bg-red-600 text-white py-3 rounded-xl font-bold shadow-lg active:scale-95 transition-transform"
